@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QueryMind — Text to SQL</title>
+    <style>
+        /* ── Reset & base ── */
+        
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+         :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #22263a;
+            --border: #2e3250;
+            --accent: #6c63ff;
+            --accent2: #4ecca3;
+            --text: #e8eaf6;
+            --muted: #7b82a8;
+            --success: #4ecca3;
+            --error: #ff6b6b;
+            --warning: #ffd93d;
+            --radius: 12px;
+            --font: 'Inter', system-ui, sans-serif;
+            --font-mono: 'Fira Code', 'Courier New', monospace;
+        }
+        
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 15px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+        /* ── Layout ── */
+        
+        .container {
+            width: 100%;
+            max-width: 860px;
+        }
+        /* ── Header ── */
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: var(--muted);
+            font-size: 15px;
+        }
+        /* ── Input box ── */
+        
+        .input-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        
+        .input-wrap {
+            flex: 1;
+        }
+        
+        .input-wrap label {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        textarea {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: var(--font);
+            font-size: 15px;
+            padding: 12px 14px;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+            line-height: 1.5;
+        }
+        
+        textarea:focus {
+            border-color: var(--accent);
+        }
+        
+        textarea::placeholder {
+            color: var(--muted);
+        }
+        
+        button#ask-btn {
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+            white-space: nowrap;
+            height: 48px;
+        }
+        
+        button#ask-btn:hover {
+            opacity: 0.9;
+        }
+        
+        button#ask-btn:active {
+            transform: scale(0.98);
+        }
+        
+        button#ask-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* ── Sample questions ── */
+        
+        .samples {
+            margin-top: 14px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .samples span {
+            font-size: 12px;
+            color: var(--muted);
+            margin-right: 4px;
+        }
+        
+        .sample-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--muted);
+            font-size: 12px;
+            padding: 4px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .sample-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        /* ── Loader ── */
+        
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        
+        .loader.active {
+            display: block;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        /* ── Result sections ── */
+        
+        .results {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+        
+        .results.active {
+            display: flex;
+        }
+        
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 18px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface2);
+        }
+        
+        .card-header h3 {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+        
+        .card-body {
+            padding: 18px;
+        }
+        /* ── Meta bar ── */
+        
+        .meta-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 14px 18px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+        }
+        
+        .meta-item {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        
+        .meta-label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        
+        .meta-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .meta-value.success {
+            color: var(--success);
+        }
+        
+        .meta-value.accent {
+            color: var(--accent);
+        }
+        
+        .meta-value.warning {
+            color: var(--warning);
+        }
+        /* ── SQL block ── */
+        
+        .sql-block {
+            background: #0d1117;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.7;
+            overflow-x: auto;
+            white-space: pre;
+            color: #c9d1d9;
+        }
+        /* Simple SQL syntax highlighting */
+        
+        .kw {
+            color: #ff79c6;
+            font-weight: 600;
+        }
+        /* keywords   */
+        
+        .fn {
+            color: #50fa7b;
+        }
+        /* functions  */
+        
+        .str {
+            color: #f1fa8c;
+        }
+        /* strings    */
+        
+        .num {
+            color: #bd93f9;
+        }
+        /* numbers    */
+        
+        .cmt {
+            color: #6272a4;
+            font-style: italic;
+        }
+        /* comments   */
+        /* ── Tables retrieved pills ── */
+        
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .pill {
+            background: var(--surface2);
+            border: 1px solid var(--accent);
+            border-radius: 20px;
+            color: var(--accent);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 14px;
+            letter-spacing: 0.03em;
+        }
+        /* ── Results table ── */
+        
+        .table-wrap {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        thead tr {
+            background: var(--surface2);
+        }
+        
+        th {
+            text-align: left;
+            padding: 10px 14px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        
+        td {
+            padding: 10px 14px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tbody tr:hover {
+            background: var(--surface2);
+        }
+        /* ── Error card ── */
+        
+        .error-card {
+            background: #2a1a1a;
+            border: 1px solid var(--error);
+            border-radius: var(--radius);
+            padding: 18px;
+            color: var(--error);
+            font-size: 14px;
+            display: none;
+        }
+        
+        .error-card.active {
+            display: block;
+        }
+        
+        .error-card strong {
+            display: block;
+            margin-bottom: 6px;
+        }
+        /* ── Copy button ── */
+        
+        .copy-btn {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--muted);
+            font-size: 11px;
+            padding: 4px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .copy-btn:hover {
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <!-- Header -->
+        <div class="header">
+            <h1>⚡ QueryMind</h1>
+            <p>Ask questions in plain English. Get SQL and results instantly.</p>
+        </div>
+
+        <!-- Input -->
+        <div class="input-card">
+            <div class="input-row">
+                <div class="input-wrap">
+                    <label>Your question</label>
+                    <textarea id="question" rows="2" placeholder="e.g. Who are the top 3 customers by total spending?"></textarea>
+                </div>
+                <button id="ask-btn" onclick="runQuery()">Ask →</button>
+            </div>
+            <div class="samples">
+                <span>Try:</span>
+                <button class="sample-btn" onclick="setQ(this)">Top 3 customers by spending</button>
+                <button class="sample-btn" onclick="setQ(this)">Products low on stock</button>
+                <button class="sample-btn" onclick="setQ(this)">Total revenue from delivered orders</button>
+                <button class="sample-btn" onclick="setQ(this)">Most expensive product</button>
+                <button class="sample-btn" onclick="setQ(this)">All pending orders</button>
+            </div>
+        </div>
+
+        <!-- Loader -->
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            Generating SQL and fetching results...
+        </div>
+
+        <!-- Error -->
+        <div class="error-card" id="error-card">
+            <strong>Error</strong>
+            <span id="error-msg"></span>
+        </div>
+
+        <!-- Results -->
+        <div class="results" id="results">
+
+            <!-- Meta bar -->
+            <div class="meta-bar">
+                <div class="meta-item">
+                    <span class="meta-label">Status</span>
+                    <span class="meta-value success" id="meta-status">success</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Rows returned</span>
+                    <span class="meta-value accent" id="meta-rows">—</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Execution time</span>
+                    <span class="meta-value warning" id="meta-time">—</span>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Corrections made</span>
+                    <span class="meta-value" id="meta-corrections">—</span>
+                </div>
+            </div>
+
+            <!-- Tables retrieved -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Tables retrieved via RAG</h3>
+                </div>
+                <div class="card-body">
+                    <div class="pill-row" id="tables-row"></div>
+                </div>
+            </div>
+
+            <!-- Generated SQL -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>Generated SQL</h3>
+                    <button class="copy-btn" onclick="copySQL()">Copy</button>
+                </div>
+                <div class="card-body">
+                    <div class="sql-block" id="sql-block"></div>
+                </div>
+            </div>
+
+            <!-- Results table -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 id="results-heading">Results</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-wrap">
+                        <table id="results-table">
+                            <thead id="results-thead"></thead>
+                            <tbody id="results-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- /results -->
+    </div>
+    <!-- /container -->
+
+    <script>
+        const API = "http://localhost:8000";
+
+        function setQ(btn) {
+            document.getElementById("question").value = btn.textContent;
+        }
+
+        function show(id) {
+            document.getElementById(id).classList.add("active");
+        }
+
+        function hide(id) {
+            document.getElementById(id).classList.remove("active");
+        }
+
+        async function runQuery() {
+            const question = document.getElementById("question").value.trim();
+            if (!question) return;
+
+            // Reset UI
+            hide("results");
+            hide("error-card");
+            show("loader");
+            document.getElementById("ask-btn").disabled = true;
+
+            try {
+                const res = await fetch(`${API}/query`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        question
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || "Unknown error");
+                }
+
+                renderResults(data);
+
+            } catch (err) {
+                document.getElementById("error-msg").textContent = err.message;
+                show("error-card");
+            } finally {
+                hide("loader");
+                document.getElementById("ask-btn").disabled = false;
+            }
+        }
+
+        function renderResults(data) {
+            // Meta bar
+            document.getElementById("meta-status").textContent = data.status;
+            document.getElementById("meta-rows").textContent = data.row_count;
+            document.getElementById("meta-time").textContent = data.execution_time_ms + "ms";
+            document.getElementById("meta-corrections").textContent = data.corrections_made;
+
+            // Tables pills
+            const pillRow = document.getElementById("tables-row");
+            pillRow.innerHTML = data.retrieved_tables
+                .map(t => `<span class="pill">${t}</span>`)
+                .join("");
+
+            // SQL with syntax highlighting
+            document.getElementById("sql-block").innerHTML = highlightSQL(data.sql);
+
+            // Results table
+            document.getElementById("results-heading").textContent =
+                `Results — ${data.row_count} row${data.row_count !== 1 ? "s" : ""}`;
+
+            const thead = document.getElementById("results-thead");
+            const tbody = document.getElementById("results-tbody");
+            thead.innerHTML = "";
+            tbody.innerHTML = "";
+
+            if (data.results && data.results.length > 0) {
+                const cols = Object.keys(data.results[0]);
+
+                // Header row
+                thead.innerHTML = `<tr>${cols.map(c => `<th>${c}</th>`).join("")}</tr>`;
+
+    // Data rows
+    tbody.innerHTML = data.results.map(row =>
+      `<tr>${cols.map(c => `<td>${row[c] ?? "—"}</td>`).join("")}</tr>`
+    ).join("");
+  } else {
+    tbody.innerHTML = `<tr><td colspan="99" style="color:var(--muted);text-align:center">No rows returned</td></tr>`;
+  }
+
+  show("results");
+}
+
+// Minimal SQL syntax highlighter
+function highlightSQL(sql) {
+  const keywords = [
+    "SELECT","FROM","WHERE","JOIN","LEFT","RIGHT","INNER","OUTER","ON",
+    "GROUP BY","ORDER BY","HAVING","LIMIT","OFFSET","AS","AND","OR","NOT",
+    "IN","LIKE","IS","NULL","BETWEEN","DISTINCT","COUNT","SUM","AVG",
+    "MAX","MIN","CASE","WHEN","THEN","ELSE","END","INSERT","UPDATE",
+    "DELETE","CREATE","DROP","ALTER","INDEX","TABLE","BY","DESC","ASC"
+  ];
+
+  // Escape HTML first
+  let out = sql
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Strings
+  out = out.replace(/'([^']*)'/g, `<span class="str">'$1'</span>`);
+
+  // Numbers
+  out = out.replace(/\b(\d+\.?\d*)\b/g, `<span class="num">$1</span>`);
+
+  // Keywords (longest first to avoid partial matches)
+  keywords
+    .sort((a, b) => b.length - a.length)
+    .forEach(kw => {
+      const re = new RegExp(`\\b(${kw})\\b`, "gi");
+      out = out.replace(re, `<span class="kw">$1</span>`);
+    });
+
+  return out;
+}
+
+function copySQL() {
+  const sql = document.getElementById("sql-block").innerText;
+  navigator.clipboard.writeText(sql).then(() => {
+    const btn = document.querySelector(".copy-btn");
+    btn.textContent = "Copied!";
+    setTimeout(() => btn.textContent = "Copy", 1500);
+  });
+}
+
+// Allow Ctrl+Enter to submit
+document.addEventListener("keydown", e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runQuery();
+});
+    </script>
+</body>
+
+</html>

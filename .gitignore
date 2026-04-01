@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+chroma_store/
+database/ecommerce.db
+*.db
+.DS_Store
