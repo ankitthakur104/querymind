@@ -1,8 +1,11 @@
 .env
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 chroma_store/
 database/ecommerce.db
 *.db
 .DS_Store
+.gitignore.save
+tests/eval_results.json
